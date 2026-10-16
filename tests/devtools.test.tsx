@@ -18,7 +18,7 @@ type TupleOfEqualLength<Arr extends unknown[], T> = number extends Arr['length']
 type Connection = {
   subscribers: ((message: unknown) => void)[]
   api: {
-    subscribe: Mock<any>
+    subscribe: Mock<(f: (message: unknown) => void) => () => void>
     unsubscribe: Mock<any>
     send: Mock<any>
     init: Mock<any>
@@ -93,7 +93,7 @@ const extensionConnector = {
       ? unnamedConnections
       : namedConnections
     const subscribers: Connection['subscribers'] = []
-    const api = {
+    const api: Connection['api'] = {
       subscribe: vi.fn((f: (m: unknown) => void) => {
         subscribers.push(f)
         return () => {}
@@ -221,6 +221,151 @@ describe('When state changes with automatic setter inferring...', () => {
       { type: expect.stringMatching(/^(Object\.setCount|anonymous)$/) },
       { count: 10, setCount: expect.any(Function) },
     )
+  })
+
+  it.each([
+    {
+      label: 'webpack namespace with space',
+      stack: [
+        '    at api.setState (webpack://devtools.ts:200:5)',
+        '    at Object.increment (webpack://my app/./src/store.js:10:5)',
+      ].join('\n'),
+      expected: 'Object.increment',
+    },
+    {
+      label: 'Windows path with space',
+      stack: [
+        '    at api.setState (C:\\app\\devtools.ts:200:5)',
+        '    at increment (C:\\Program Files\\app\\store.js:10:5)',
+      ].join('\n'),
+      expected: 'increment',
+    },
+    {
+      label: 'space-free path (regression)',
+      stack: [
+        '    at api.setState (http://localhost/devtools.ts:200:5)',
+        '    at Object.setCount (http://localhost/app.ts:10:5)',
+      ].join('\n'),
+      expected: 'Object.setCount',
+    },
+    {
+      label: 'async function — strips async keyword',
+      stack: [
+        '    at api.setState (file.js:200:5)',
+        '    at async Object.increment (file.js:10:5)',
+      ].join('\n'),
+      expected: 'Object.increment',
+    },
+    {
+      label: 'constructor — strips new keyword',
+      stack: [
+        '    at api.setState (file.js:200:5)',
+        '    at new Foo (file.js:10:5)',
+      ].join('\n'),
+      expected: 'Foo',
+    },
+  ])(
+    'infers caller name from V8 stack format — $label',
+    ({ stack, expected }) => {
+      const OriginalError = Error
+      function ErrorWithV8Stack(
+        ...args: ConstructorParameters<typeof OriginalError>
+      ) {
+        const err = new OriginalError(...args)
+        Object.defineProperty(err, 'stack', {
+          value: stack,
+          configurable: true,
+          writable: true,
+        })
+        return err
+      }
+      ErrorWithV8Stack.prototype = OriginalError.prototype
+      globalThis.Error = ErrorWithV8Stack as unknown as typeof Error
+
+      try {
+        const options = {
+          name: 'testOptionsName',
+          enabled: true,
+        }
+
+        const api = createStore<{
+          count: number
+          setCount: (count: number) => void
+        }>()(
+          devtools(
+            (set) => ({
+              count: 0,
+              setCount: (newCount: number) => {
+                set({ count: newCount })
+              },
+            }),
+            options,
+          ),
+        )
+
+        api.getState().setCount(10)
+        const [connection] = getNamedConnectionApis(options.name)
+        expect(connection.send).toHaveBeenLastCalledWith(
+          { type: expected },
+          { count: 10, setCount: expect.any(Function) },
+        )
+      } finally {
+        globalThis.Error = OriginalError
+      }
+    },
+  )
+
+  it('infers caller name from Firefox/SpiderMonkey stack format', () => {
+    const geckoStack = [
+      'api.setState@http://localhost/devtools.ts:200:5',
+      'setCount@http://localhost/app.ts:10:5',
+    ].join('\n')
+
+    const OriginalError = Error
+    function ErrorWithGeckoStack(
+      ...args: ConstructorParameters<typeof OriginalError>
+    ) {
+      const err = new OriginalError(...args)
+      Object.defineProperty(err, 'stack', {
+        value: geckoStack,
+        configurable: true,
+        writable: true,
+      })
+      return err
+    }
+    ErrorWithGeckoStack.prototype = OriginalError.prototype
+    globalThis.Error = ErrorWithGeckoStack as unknown as typeof Error
+
+    try {
+      const options = {
+        name: 'testOptionsName',
+        enabled: true,
+      }
+
+      const api = createStore<{
+        count: number
+        setCount: (count: number) => void
+      }>()(
+        devtools(
+          (set) => ({
+            count: 0,
+            setCount: (newCount: number) => {
+              set({ count: newCount })
+            },
+          }),
+          options,
+        ),
+      )
+
+      api.getState().setCount(10)
+      const [connection] = getNamedConnectionApis(options.name)
+      expect(connection.send).toHaveBeenLastCalledWith(
+        { type: 'setCount' },
+        { count: 10, setCount: expect.any(Function) },
+      )
+    } finally {
+      globalThis.Error = OriginalError
+    }
   })
 })
 
@@ -1474,8 +1619,8 @@ describe('when create devtools was called multiple times with `name` option unde
         subscribers.forEach((sub) => sub(action))
 
         expect(api1.getState()).toStrictEqual(initialState1)
-        expect(api1.getState()).toStrictEqual(initialState1)
-        expect(api1.getState()).toStrictEqual(initialState1)
+        expect(api2.getState()).toStrictEqual(initialState2)
+        expect(api3.getState()).toStrictEqual(initialState3)
         expect(connection1.init).toHaveBeenLastCalledWith(initialState1)
         expect(connection2.init).toHaveBeenLastCalledWith(initialState2)
         expect(connection3.init).toHaveBeenLastCalledWith(initialState3)

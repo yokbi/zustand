@@ -71,8 +71,7 @@ it('can use exposed types', () => {
   function checkAllTypes(
     _getState: StoreApi<ExampleState>['getState'],
     _partialState:
-      | Partial<ExampleState>
-      | ((s: ExampleState) => Partial<ExampleState>),
+      Partial<ExampleState> | ((s: ExampleState) => Partial<ExampleState>),
     _setState: StoreApi<ExampleState>['setState'],
     _state: object,
     _stateListener: (state: ExampleState, previousState: ExampleState) => void,
@@ -185,14 +184,16 @@ it('state is covariant', () => {
     foo: '',
   }))
 
-  const _testIsCovariant: StoreApi<{ count: number }> = store
+  const testIsCovariant: StoreApi<{ count: number }> = store
+  expect(testIsCovariant).toBeDefined()
 
   // @ts-expect-error should not compile
-  const _testIsNotContravariant: StoreApi<{
+  const testIsNotContravariant: StoreApi<{
     count: number
     foo: string
     baz: string
   }> = store
+  expect(testIsNotContravariant).toBeDefined()
 })
 
 it('StateCreator<T, [StoreMutatorIdentfier, unknown][]> is StateCreator<T, []>', () => {
@@ -211,7 +212,8 @@ it('StateCreator<T, [StoreMutatorIdentfier, unknown][]> is StateCreator<T, []>',
     },
   })
 
-  create<State>()(persist(foo(), { name: 'prefix' }))
+  const store = create<State>()(persist(foo(), { name: 'prefix' }))
+  expect(store).toBeDefined()
 })
 
 it('StateCreator subtyping', () => {
@@ -229,8 +231,9 @@ it('StateCreator subtyping', () => {
 
   create<State>()(persist(foo(), { name: 'prefix' }))
 
-  const _testSubtyping: StateCreator<State, [['zustand/persist', unknown]]> =
+  const testSubtyping: StateCreator<State, [['zustand/persist', unknown]]> =
     {} as StateCreator<State, []>
+  expect(testSubtyping).toBeDefined()
 })
 
 it('set state exists on store with readonly store', () => {
@@ -245,4 +248,5 @@ it('set state exists on store with readonly store', () => {
   }))
 
   useStore.setState((state) => ({ ...state, count: state.count + 1 }))
+  expect(useStore).toBeDefined()
 })

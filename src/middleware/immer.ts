@@ -6,9 +6,10 @@ type Immer = <
   T,
   Mps extends [StoreMutatorIdentifier, unknown][] = [],
   Mcs extends [StoreMutatorIdentifier, unknown][] = [],
+  U = T,
 >(
-  initializer: StateCreator<T, [...Mps, ['zustand/immer', never]], Mcs>,
-) => StateCreator<T, Mps, [['zustand/immer', never], ...Mcs]>
+  initializer: StateCreator<T, [...Mps, ['zustand/immer', never]], Mcs, U>,
+) => StateCreator<T, Mps, [['zustand/immer', never], ...Mcs], U>
 
 declare module '../vanilla' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -57,8 +58,7 @@ type StoreImmer<S> = S extends {
         ): Sr1
         setState(
           nextStateOrUpdater:
-            | SetStateType<A2>
-            | ((state: Draft<SetStateType<A2>>) => void),
+            SetStateType<A2> | ((state: Draft<SetStateType<A2>>) => void),
           shouldReplace: true,
           ...args: SkipTwo<A2>
         ): Sr2

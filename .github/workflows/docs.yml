@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 # Cancel previous run (see: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,11 +15,11 @@ concurrency:
 
 jobs:
   build:
-    uses: pmndrs/docs/.github/workflows/build.yml@v2
+    uses: pmndrs/docs/.github/workflows/build.yml@v4
     with:
       mdx: 'docs'
       libname: 'Zustand'
-      home_redirect: '/getting-started/introduction'
+      home_redirect: '/learn/getting-started/introduction'
       icon: '/favicon.ico'
       logo: '/bear.jpg'
       github: 'https://github.com/pmndrs/zustand'
@@ -37,4 +40,4 @@ jobs:
 
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

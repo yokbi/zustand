@@ -6,6 +6,9 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+
 jobs:
   test_multiple_versions:
     runs-on: ubuntu-latest
@@ -19,17 +22,22 @@ jobs:
           - 18.3.1
           - 19.0.0
           - 19.1.0
-          - 19.2.0-canary-0bdb9206-20250818
-          - 0.0.0-experimental-0bdb9206-20250818
+          - 19.2.0
+          - 19.3.0-canary-bfb7a768-20260811
+          - 0.0.0-experimental-bfb7a768-20260811
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 'lts/*'
           cache: 'pnpm'
       - run: pnpm install
       - name: Test ${{ matrix.react }} ${{ matrix.devtools-skip }}
         run: |
-          pnpm add -D react@${{ matrix.react }} react-dom@${{ matrix.react }}
+          pnpm add -D react@$REACT_VER react-dom@$REACT_VER
           pnpm run test:spec
+        env:
+          REACT_VER: ${{ matrix.react }}
